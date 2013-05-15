@@ -1,0 +1,23 @@
+{
+  "name": "collagen-mysql",
+  "description": "MySQL back-end storage for Collagen.js models.",
+  "version": "0.0.0",
+  "author": {
+    "name": "Victor Kareh",
+    "url": "http://www.vkareh.net"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/vkareh/collagen-mysql.git"
+  },
+  "main": "./index.js",
+  "dependencies": {
+    "mysql": "2.x"
+  },
+  "keywords": [
+    "collagen",
+    "mysql",
+    "storage"
+  ],
+  "license": "MIT"
+}
