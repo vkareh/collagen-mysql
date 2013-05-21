@@ -34,6 +34,29 @@ file, add the following property, replacing values as appropriate.
 }
 ```
 
+You can also create configurations for multiple databases.
+
+```js
+{
+    "mysql": {
+        "db1": {
+            "host": "localhost",
+            "port": 3306,
+            "database": "database-name",
+            "user": "mysql-username",
+            "password": "mysql-password"
+        },
+        "db2": {
+            "host": "localhost",
+            "port": 3306,
+            "database": "other-database-name",
+            "user": "mysql-username",
+            "password": "mysql-password"
+        }
+    }
+}
+```
+
 ### Usage
 Once your module is installed and configured, you will need to add the `storage:
 'mysql'` property to the model or collection that will use it. For example:
@@ -62,10 +85,13 @@ _collagen-blog_ module. In addition to models, you would also want to add
 `storage: 'mysql'` to any collections that need it.
 
 The collagen-mysql module overrides the model's `sync()` method and provides a
-`model.mysql` object that points to a MySQL connection pool. You can
-use this to override the module's `sync()` method with your own logic.
+`model.mysql()` function that returns a MySQL connection pool for the selected
+database configuration. You can use this to override the module's `sync()`
+method with your own logic.
 
 To query MySQL, use
-`model.mysql.query('SELECT * FROM table ...', function(err, rows) {...})`,
+`model.mysql().query('SELECT * FROM table ...', function(err, rows) {...})`,
 which will grab a connection from the pool and end it after the query has
-returned.
+returned. If you have multiple database configurations, you can select them by
+doing the following: `model.mysql('db1').query(...)`, where `db1` is the
+database configuration key in your `collagen.json` file.
