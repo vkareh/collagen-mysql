@@ -9,7 +9,7 @@ var sync = function(method, model, options) {
         case 'read':
             // Read from MySQL
             if (model.id) {
-                model.mysql.query('SELECT * FROM ?? WHERE ?? = ?', [table, model.idAttribute, model.id], function(err, rows) {
+                model.mysql().query('SELECT * FROM ?? WHERE ?? = ?', [table, model.idAttribute, model.id], function(err, rows) {
                     if (err) return options.error(err);
                     model.set(rows[0]);
                     options.success(model);
@@ -24,32 +24,46 @@ var sync = function(method, model, options) {
 var mysql = require('mysql');
 var register = models.Model.register;
 models.Model.register = function(server) {
-    if (!this.prototype.mysql) {
-        // Create a connection pool to the configured MySQL database
+    var model = this;
+    if (!model.prototype.mysql) {
         var config = Collagen.config && Collagen.config.mysql || {};
-        var pool = mysql.createPool(config);
 
-        // Give models access to the MySQL connection pool
-        this.prototype.mysql = pool;
-        // Wrap query function to grab a connection from the pool automatically
-        this.prototype.mysql.query = function(sql, values, callback) {
-            if (typeof values === 'function') {
-                callback = values;
-                values = [];
-            }
-            pool.getConnection(function(err, connection) {
-                if (err) return callback(err);
-                connection.query(sql, values, function(err, rows, fields) {
-                    callback(err, rows, fields);
-                    connection.end();
-                });
-            });
+        // Single configured database
+        if (_.has(config, 'host')) {
+            config['default'] = config;
         }
+
+        // Create connection pool for each of the configured databases
+        var pool = [];
+        _.each(config, function(options, key) {
+            pool[key] = mysql.createPool(options);
+
+            // Wrap query function to grab a connection from the pool automatically
+            pool[key].query = function(sql, values, callback) {
+                if (typeof values === 'function') {
+                    callback = values;
+                    values = [];
+                }
+                pool[key].getConnection(function(err, connection) {
+                    if (err) return callback(err);
+                    connection.query(sql, values, function(err, rows, fields) {
+                        callback(err, rows, fields);
+                        connection.end();
+                    });
+                });
+            }
+
+            // Give models access to the MySQL connection pools
+            model.prototype.mysql = function(db) {
+                db = db || _.first(_.keys(config));
+                return pool[db];
+            }
+        });
     }
 
     // Use MySQL as persistent storage for models
-    if (this.prototype.storage === 'mysql') {
-        this.prototype.sync = sync;
+    if (model.prototype.storage === 'mysql') {
+        model.prototype.sync = sync;
     }
-    return register.apply(this, arguments);
+    return register.apply(model, arguments);
 }

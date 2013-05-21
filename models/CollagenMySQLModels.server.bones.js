@@ -2,7 +2,7 @@
 var sync = function(method, collection, options) {
     var table = collection._table || collection.constructor.title.toLowerCase();
 
-    collection.mysql.query('SELECT * FROM ??', [table], function(err, rows, fields) {
+    collection.mysql().query('SELECT * FROM ??', [table], function(err, rows, fields) {
         if (err) return options.error(err);
 
         var models = _.chain(rows).map(function(row) {
@@ -21,37 +21,52 @@ var sync = function(method, collection, options) {
 var mysql = require('mysql');
 var register = models.Models.register;
 models.Models.register = function(server) {
-    if (!this.prototype.mysql) {
+    var model = this;
+    if (!model.prototype.mysql) {
         // Try to reuse MySQL connection
-        if (this.prototype.model && this.prototype.model.prototype.mysql) {
-            this.prototype.mysql = this.prototype.model.prototype.mysql;
+        if (model.prototype.model && model.prototype.model.prototype.mysql) {
+            model.prototype.mysql = model.prototype.model.prototype.mysql;
         } else {
             // Create a connection pool to the configured MySQL database
             var config = Collagen.config && Collagen.config.mysql || {};
-            var pool = mysql.createPool(config);
 
-            // Give models access to the MySQL connection pool
-            this.prototype.mysql = pool;
-            // Wrap query function to grab a connection from the pool automatically
-            this.prototype.mysql.query = function(sql, values, callback) {
-                if (typeof values === 'function') {
-                    callback = values;
-                    values = [];
-                }
-                pool.getConnection(function(err, connection) {
-                    if (err) return callback(err);
-                    connection.query(sql, values, function(err, rows, fields) {
-                        callback(err, rows, fields);
-                        connection.end();
-                    });
-                });
+            // Single configured database
+            if (_.has(config, 'host')) {
+                config['default'] = config;
             }
+
+            // Create connection pool for each of the configured databases
+            var pool = [];
+            _.each(config, function(options, key) {
+                pool[key] = mysql.createPool(options);
+
+                // Wrap query function to grab a connection from the pool automatically
+                pool[key].query = function(sql, values, callback) {
+                    if (typeof values === 'function') {
+                        callback = values;
+                        values = [];
+                    }
+                    pool[key].getConnection(function(err, connection) {
+                        if (err) return callback(err);
+                        connection.query(sql, values, function(err, rows, fields) {
+                            callback(err, rows, fields);
+                            connection.end();
+                        });
+                    });
+                }
+
+                // Give models access to the MySQL connection pools
+                model.prototype.mysql = function(db) {
+                    db = db || _.first(_.keys(config));
+                    return pool[db];
+                }
+            });
         }
     }
 
     // Use MySQL as persistent storage for models
-    if (this.prototype.storage === 'mysql') {
-        this.prototype.sync = sync;
+    if (model.prototype.storage === 'mysql') {
+        model.prototype.sync = sync;
     }
-    return register.apply(this, arguments);
+    return register.apply(model, arguments);
 }
