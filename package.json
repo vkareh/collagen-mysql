@@ -1,7 +1,7 @@
 {
   "name": "collagen-mysql",
   "description": "MySQL back-end storage for Collagen.js models.",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "author": {
     "name": "Victor Kareh",
     "url": "http://www.vkareh.net"

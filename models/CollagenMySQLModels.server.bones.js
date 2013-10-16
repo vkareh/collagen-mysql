@@ -50,7 +50,7 @@ models.Models.register = function(server) {
                         if (err) return callback(err);
                         connection.query(sql, values, function(err, rows, fields) {
                             callback(err, rows, fields);
-                            connection.end();
+                            connection.release();
                         });
                     });
                 }
